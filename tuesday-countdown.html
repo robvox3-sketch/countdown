@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tuesday Countdown</title>
+<style>
+*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;background:#eef3f8;font-family:Arial,sans-serif;color:#17324d;padding:20px}.clock{width:min(620px,100%);background:white;border-radius:22px;padding:36px 24px;text-align:center;box-shadow:0 12px 40px #17324d14}h1{font-size:26px;margin:0 0 10px}.subtitle{color:#526579;line-height:1.5}.units{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:28px 0}.unit{background:#17324d;color:white;border-radius:12px;padding:20px 4px}.number{display:block;font-size:clamp(28px,7vw,48px);font-weight:bold;font-variant-numeric:tabular-nums}.label{display:block;font-size:12px;margin-top:8px}#next{font-size:14px;color:#526579}noscript{color:#a12222}
+</style>
+</head>
+<body>
+<main class="clock">
+<h1>See you Tuesday!</h1>
+<p class="subtitle">Counting down to Tuesday at <strong>7:30 p.m.</strong><br>Pacific time</p>
+<div class="units" role="timer" aria-label="Time until next Tuesday at 7:30 p.m. Pacific">
+<div class="unit"><span class="number" id="days">00</span><span class="label">Days</span></div>
+<div class="unit"><span class="number" id="hours">00</span><span class="label">Hours</span></div>
+<div class="unit"><span class="number" id="minutes">00</span><span class="label">Minutes</span></div>
+<div class="unit"><span class="number" id="seconds">00</span><span class="label">Seconds</span></div>
+</div>
+<p id="next"></p>
+<noscript>Enable JavaScript to display the countdown.</noscript>
+</main>
+<script>
+const TIME_ZONE = 'America/Los_Angeles';
+const partsFormatter = new Intl.DateTimeFormat('en-US', {
+  timeZone: TIME_ZONE, year:'numeric', month:'2-digit', day:'2-digit',
+  hour:'2-digit', minute:'2-digit', second:'2-digit', hourCycle:'h23'
+});
+function localParts(date) {
+  return Object.fromEntries(partsFormatter.formatToParts(date)
+    .filter(p => p.type !== 'literal').map(p => [p.type, Number(p.value)]));
+}
+// Convert the Pacific wall-clock target to a real instant, including DST.
+function pacificInstant(year, month, day) {
+  const wall = Date.UTC(year, month - 1, day, 19, 30);
+  let instant = wall;
+  for (let i = 0; i < 3; i++) {
+    const p = localParts(new Date(instant));
+    const shown = Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second);
+    instant += wall - shown;
+  }
+  return instant;
+}
+function nextTuesday(now) {
+  const p = localParts(new Date(now));
+  const calendar = new Date(Date.UTC(p.year, p.month - 1, p.day));
+  calendar.setUTCDate(calendar.getUTCDate() + (2 - calendar.getUTCDay() + 7) % 7);
+  let target = pacificInstant(calendar.getUTCFullYear(), calendar.getUTCMonth()+1, calendar.getUTCDate());
+  if (target <= now) {
+    calendar.setUTCDate(calendar.getUTCDate() + 7);
+    target = pacificInstant(calendar.getUTCFullYear(), calendar.getUTCMonth()+1, calendar.getUTCDate());
+  }
+  return target;
+}
+let target;
+function update() {
+  const now = Date.now();
+  if (!target || now >= target) {
+    target = nextTuesday(now);
+    document.getElementById('next').textContent = 'Next: ' + new Intl.DateTimeFormat('en-US', {
+      timeZone:TIME_ZONE, weekday:'long', month:'long', day:'numeric',
+      hour:'numeric', minute:'2-digit', timeZoneName:'short'
+    }).format(new Date(target));
+  }
+  const remaining = Math.max(0, Math.ceil((target - now) / 1000));
+  const values = [Math.floor(remaining/86400), Math.floor(remaining/3600)%24, Math.floor(remaining/60)%60, remaining%60];
+  ['days','hours','minutes','seconds'].forEach((id,i) => {
+    document.getElementById(id).textContent = String(values[i]).padStart(2,'0');
+  });
+}
+update();
+setInterval(update, 1000);
+document.addEventListener('visibilitychange', update);
+</script>
+</body>
+</html>
